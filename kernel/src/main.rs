@@ -6,12 +6,12 @@
 extern crate alloc;
 
 mod screen;
-mod allocator;
 mod frame_allocator;
 mod interrupts;
 mod gdt;
 
 use alloc::boxed::Box;
+use buddy_system_allocator::LockedHeap;
 use core::fmt::Write;
 use core::slice;
 use bootloader_api::{entry_point, BootInfo, BootloaderConfig};
@@ -31,6 +31,9 @@ const BOOTLOADER_CONFIG: BootloaderConfig = {
     config
 };
 entry_point!(kernel_main, config = &BOOTLOADER_CONFIG);
+
+#[global_allocator]
+static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::new();
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     writeln!(serial(), "Entered kernel with boot info: {boot_info:?}").unwrap();
@@ -60,7 +63,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     let vault = unsafe { slice::from_raw_parts_mut(ptr, 100) };
     vault[0] = 65;
     vault[1] = 66;
-    writeln!(Writer, "{} {}", vault[0] as char, vault[1] as char).unwrap();
+    writeln!(Writer, "{:p} {} {}", vault, vault[0] as char, vault[1] as char).unwrap();
 
     //read CR3 for current page table
     let cr3 = Cr3::read().0.start_address().as_u64();
@@ -69,20 +72,22 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     let cr3_page = unsafe { slice::from_raw_parts_mut((cr3 + physical_offset) as *mut usize, 6) };
     writeln!(serial(), "CR3 Page table virtual address {cr3_page:#p}").unwrap();
 
-    allocator::init_heap((physical_offset + usable_region.start) as usize);
+    let mut heap: [u8; 65536] = [0; 65536];
+    unsafe {
+        // Give the allocator some memory for allocation
+        HEAP_ALLOCATOR.lock().init(heap.as_mut_ptr() as usize, heap.len());
+    }
+    
+    let a = Box::new(10);
+    let b = Box::new(20);
+    writeln!(Writer, "{:p}:Heap", heap.as_ptr()).unwrap();
+    writeln!(Writer, "{:p}:{}", a, a).unwrap();
+    writeln!(Writer, "{:p}:{}", b, b).unwrap();
 
     let rsdp = boot_info.rsdp_addr.take();
     let mut mapper = frame_allocator::init(VirtAddr::new(physical_offset));
     let mut frame_allocator = BootInfoFrameAllocator::new(&boot_info.memory_regions);
-    
     gdt::init();
-
-    // print out values from heap allocation
-    let x = Box::new(42);
-    let y = Box::new(24);
-    writeln!(Writer, "x + y = {}", *x + *y).unwrap();
-    writeln!(Writer, "{x:#p} {:?}", *x).unwrap();
-    writeln!(Writer, "{y:#p} {:?}", *y).unwrap();
     
     writeln!(serial(), "Starting kernel...").unwrap();
 

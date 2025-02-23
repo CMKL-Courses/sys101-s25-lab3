@@ -1,4 +1,4 @@
-# Bare Metal Starter
+# SYS-101 Lab 3
 
 This is a starting implementation for a simple bare metal kernel for x86-64 architecture. The implementation is based on [rust-osdev/bootloader](https://github.com/rust-osdev/bootloader) crate,
 the [pluggable interrupt OS](https://github.com/gjf2a/pluggable_interrupt_os), and [ArceOS](https://github.com/arceos-org/arceos).
@@ -12,9 +12,8 @@ building boot image and launching QEMU.
 
 ## Usage
 
-To use this crate, you need to adjust your kernel to be bootable first. Then you can create a bootable disk image from your compiled kernel. These steps are explained in detail below.
-
-If you're already using an older version of the `bootloader` crate, follow our [migration guides](docs/migration).
+To use this crate, you need to mainly modify your kernel code in `kernel/src/main.rs`.
+The current `src/main.rs` is a wrapper which includes the command to launch QEMU using the boot disk image.
 
 ### Kernel
 
@@ -22,7 +21,6 @@ Your actual kernel implementation is in `kernel` directory.
 - `main.rs` contains the entry point to the kernel.
 - `lib.rs` contains the utility functions and implementation of the kernel `HandlerTable` containing the implementation of the main event loop.
 - `interrupts.rs` contains initialization methods and interaction with [APIC (Advanced Programmable Interrupt Controller)](https://wiki.osdev.org/APIC) to set up interrupt behavior and [IDT](https://wiki.osdev.org/Interrupt_Descriptor_Table). The local APIC registers are memory-mapped to a physical frame.
-- `allocator.rs` contains a placeholder implementation for the global memory allocator (which you must implement)
 - `screen.rs` contains utility functions used to interact with the graphical framebuffer.
 - `gdt.rs` contains the code to set up the [GDT (Global Descriptor Table)](https://wiki.osdev.org/GDT_Tutorial); originally used for memory segmentation, but mostly unused for 64-bit mode.
 - `frame_allocator.rs` contains utility functions used to map the physical frame for APIC.
